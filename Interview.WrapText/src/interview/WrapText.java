@@ -25,18 +25,18 @@ public final class WrapText {
         int counter = MAX_LENGHT;
         for (String word : words) {
             if (word.length() <= counter) {
-                counter = getCounter(resultBuilder, counter, word);
+                counter = appendWordAndCountLength(resultBuilder, counter, word);
             } else {
                 resultBuilder.append(FOUR_SPACES);
                 resultBuilder.append(System.lineSeparator());
-                counter = getCounter(resultBuilder, MAX_LENGHT, word);
+                counter = appendWordAndCountLength(resultBuilder, MAX_LENGHT, word);
             }
         }
 
         return resultBuilder.toString();
     }
 
-    private static int getCounter(StringBuilder resultBuilder, int counter, String word) {
+    private static int appendWordAndCountLength(StringBuilder resultBuilder, int counter, String word) {
         int val = counter;
         resultBuilder.append(word);
         resultBuilder.append(" ");

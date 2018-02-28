@@ -1,5 +1,7 @@
 package interview;
 
+import interview.exception.WrongFilteringConditionsExceptions;
+
 import javax.json.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +19,8 @@ import java.util.List;
 public final class FilterJson {
 
     public static void main(String[] args) {
+
+        // mess for test
         JsonObject model = Json.createObjectBuilder()
                 .add("firstName", "Duke")
                 .add("lastName", "Java")
@@ -55,17 +59,21 @@ public final class FilterJson {
     }
 
     public static void extract(final JsonArray src, final List<DataExtractionAttribute> spec, final JsonArrayBuilder dest) {
-        filterJson(src, dest, spec);
+        try {
+            filterJson(src, dest, spec);
+        } catch (WrongFilteringConditionsExceptions wrongFilteringConditionsExceptions) {
+            System.err.println("Wrong DataExtractionAttribute, cause: " + wrongFilteringConditionsExceptions.getMessage());
+        }
     }
 
-    private static void filterJson(JsonArray src, JsonArrayBuilder dest, List<DataExtractionAttribute> attributes) {
+    private static void filterJson(JsonArray src, JsonArrayBuilder dest, List<DataExtractionAttribute> attributes) throws WrongFilteringConditionsExceptions {
         for (DataExtractionAttribute attribute : attributes) {
             filterJsonNode(null, src, dest, attribute);
         }
 
     }
 
-    private static void filterJsonNode(JsonArrayBuilder middle, JsonValue tree, JsonArrayBuilder dest, DataExtractionAttribute attribute) {
+    private static void filterJsonNode(JsonArrayBuilder middle, JsonValue tree, JsonArrayBuilder dest, DataExtractionAttribute attribute) throws WrongFilteringConditionsExceptions {
         JsonValue.ValueType i = tree.getValueType();
         if (i == JsonValue.ValueType.OBJECT) {
             JsonObject object = (JsonObject) tree;
@@ -84,14 +92,7 @@ public final class FilterJson {
                         dest.add(filtered);
                     }
                 } else {
-                    JsonArrayBuilder builder = Json.createArrayBuilder();
-                    for (DataExtractionAttribute childAttr : children) {
-                        for (JsonValue jsonValue : (JsonArray) inside) {
-                            filterJsonNode(builder, jsonValue, dest, childAttr);
-                        }
-                    }
-                    JsonObject filtered = Json.createObjectBuilder().add(attrName, builder).build();
-                    dest.add(filtered);
+                    filterAndAppendChildren(dest, attrName, inside, children);
                 }
             }
         } else if (i == JsonValue.ValueType.ARRAY) {
@@ -100,6 +101,23 @@ public final class FilterJson {
                 filterJsonNode(null, val, dest, attribute);
         }
 
+    }
+
+    private static void filterAndAppendChildren(JsonArrayBuilder dest, String attrName, JsonValue inside, List<DataExtractionAttribute> children) throws WrongFilteringConditionsExceptions {
+        if (inside.getValueType() != JsonValue.ValueType.ARRAY) {
+            throw new WrongFilteringConditionsExceptions(attrName + "is not an array");
+
+        }
+        JsonArray array = (JsonArray) inside;
+
+        JsonArrayBuilder builder = Json.createArrayBuilder();
+        for (DataExtractionAttribute childAttr : children) {
+            for (JsonValue jsonValue : array) {
+                filterJsonNode(builder, jsonValue, dest, childAttr);
+            }
+        }
+        JsonObject filtered = Json.createObjectBuilder().add(attrName, builder).build();
+        dest.add(filtered);
     }
 
 
