@@ -1,9 +1,7 @@
 package interview;
 
-import javax.json.JsonArray;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
+import javax.json.*;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -18,37 +16,91 @@ import java.util.List;
 
 public final class FilterJson {
 
+    public static void main(String[] args) {
+        JsonObject model = Json.createObjectBuilder()
+                .add("firstName", "Duke")
+                .add("lastName", "Java")
+                .add("age", 18)
+                .add("streetAddress", "100 Internet Dr")
+                .add("city", "JavaTown")
+                .add("state", "JA")
+                .add("postalCode", "12345")
+                .add("phoneNumbers", Json.createArrayBuilder()
+                        .add(Json.createObjectBuilder()
+                                .add("type", "mobile")
+                                .add("number", "111-111-1111"))
+                        .add(Json.createObjectBuilder()
+                                .add("type", "home")
+                                .add("number", "222-222-2222")))
+                .build();
+
+        List<DataExtractionAttribute> spec = new ArrayList<>();
+        DataExtractionAttribute attribute = new DataExtractionAttribute();
+        DataExtractionAttribute attribute2 = new DataExtractionAttribute();
+        attribute.setName("age");
+        attribute2.setName("phoneNumbers");
+        List<DataExtractionAttribute> sublist = new ArrayList<>();
+        DataExtractionAttribute subAttr = new DataExtractionAttribute();
+        subAttr.setName("number");
+        sublist.add(subAttr);
+        attribute2.setChildren(sublist);
+        spec.add(attribute);
+        spec.add(attribute2);
+        JsonArrayBuilder arr = Json.createArrayBuilder();
+        JsonArrayBuilder res = Json.createArrayBuilder();
+        arr.add(model);
+        extract(arr.build(), spec, res);
+        System.out.println(res.build());
+        System.out.println(model);
+    }
+
     public static void extract(final JsonArray src, final List<DataExtractionAttribute> spec, final JsonArrayBuilder dest) {
         filterJson(src, dest, spec);
     }
 
     private static void filterJson(JsonArray src, JsonArrayBuilder dest, List<DataExtractionAttribute> attributes) {
         for (DataExtractionAttribute attribute : attributes) {
-            filterJsonNode(src, dest, attribute);
+            filterJsonNode(null, src, dest, attribute);
         }
 
     }
 
-    private static void filterJsonNode(JsonValue tree, JsonArrayBuilder dest, DataExtractionAttribute attribute) {
+    private static void filterJsonNode(JsonArrayBuilder middle, JsonValue tree, JsonArrayBuilder dest, DataExtractionAttribute attribute) {
         JsonValue.ValueType i = tree.getValueType();
         if (i == JsonValue.ValueType.OBJECT) {
             JsonObject object = (JsonObject) tree;
-            if (object.keySet().contains(attribute.getName())) {
-                if (!attribute.getChildren().isEmpty()) {
-                    dest.add(object);
-                } else {
-                    for (DataExtractionAttribute childAttr : attribute.getChildren()) {
-                        filterJsonNode(object, dest, childAttr);
+            String attrName = attribute.getName();
+            JsonValue inside = object.get(attrName);
+            if (inside != null) {
+                List<DataExtractionAttribute> children = attribute.getChildren();
+                if (children == null || children.isEmpty()) {
+                    JsonObject filtered;
+                    if (middle != null) {
+                        JsonObject arrVal = Json.createObjectBuilder().add(attrName, inside).build();
+                        middle.add(arrVal);
+
+                    } else {
+                        filtered = Json.createObjectBuilder().add(attrName, inside).build();
+                        dest.add(filtered);
                     }
+                } else {
+                    JsonArrayBuilder builder = Json.createArrayBuilder();
+                    for (DataExtractionAttribute childAttr : children) {
+                        for (JsonValue jsonValue : (JsonArray) inside) {
+                            filterJsonNode(builder, jsonValue, dest, childAttr);
+                        }
+                    }
+                    JsonObject filtered = Json.createObjectBuilder().add(attrName, builder).build();
+                    dest.add(filtered);
                 }
             }
-
         } else if (i == JsonValue.ValueType.ARRAY) {
             JsonArray array = (JsonArray) tree;
             for (JsonValue val : array)
-                filterJsonNode(val, dest, attribute);
+                filterJsonNode(null, val, dest, attribute);
         }
 
     }
+
 
 }
